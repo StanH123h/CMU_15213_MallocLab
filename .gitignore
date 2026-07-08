@@ -1,0 +1,6 @@
+*.o
+._*
+.DS_Store
+mdriver
+.idea/
+
