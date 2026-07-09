@@ -46,6 +46,11 @@
 
  */
 
+ /**
+  第一版核心思路:
+  不释放，需要内存就分配新的，老的永远占用
+ */
+
 
 // #define DEBUG // 用来触发 #ifdef， 如果注释掉那就不会触发
 #ifdef DEBUG // ifdef就是 if defined
