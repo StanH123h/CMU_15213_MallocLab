@@ -8,8 +8,46 @@
 #include "mm.h"
 #include "memlib.h"
 
+/**
+    Results for this version:
+    注意这一版是有off-by-one Bug的，但是因为同时两个地方出现了off-by-one Bug，所以抵消了，正好跑起来了😅
+    -------------------------
+  valid  util   ops    secs     Kops  trace
+   yes     0%  100000  0.010103  9898 ./traces/alaska.rep
+ * yes    23%    4805  0.001434  3350 ./traces/amptjp.rep
+ * yes    30%    4162  0.000352 11827 ./traces/bash.rep
+ * yes    44%   57716  0.005484 10525 ./traces/boat.rep
+ * yes    19%    5032  0.001500  3354 ./traces/cccp.rep
+ * yes    34%   11991  0.001045 11477 ./traces/chrome.rep
+ * yes     2%   20000  0.003367  5940 ./traces/coalesce-big.rep
+   yes     0%   14400  0.004883  2949 ./traces/coalescing-bal.rep
+   yes   100%      15  0.000004  3947 ./traces/corners.rep
+ * yes    30%    5683  0.001799  3159 ./traces/cp-decl.rep
+ u yes     1%      --        --    -- ./traces/exhaust.rep
+ * yes    32%    8000  0.000688 11630 ./traces/firefox.rep
+   yes    63%   99804  0.007110 14038 ./traces/firefox-reddit.rep
+   yes    68%     118  0.000022  5339 ./traces/hostname.rep
+ * yes    65%   19405  0.001966  9872 ./traces/login.rep
+ * yes    25%     200  0.000022  9174 ./traces/lrucd.rep
+   yes    75%     372  0.000046  8000 ./traces/ls.rep
+   yes    94%      10  0.000002  5263 ./traces/malloc.rep
+   yes    77%      17  0.000002  8947 ./traces/malloc-free.rep
+ *  no      -       -         -     - ./traces/needle.rep
+ * yes    34%     200  0.000028  7220 ./traces/nlydf.rep
+   yes    71%    1494  0.000167  8930 ./traces/perl.rep
+ * yes    32%     200  0.000026  7692 ./traces/qyqyc.rep
+ * yes    36%    4800  0.001561  3075 ./traces/random.rep
+ * yes    37%    4800  0.001543  3111 ./traces/random2.rep
+ * yes    83%     147  0.000038  3838 ./traces/rm.rep
+ * yes    28%     200  0.000025  8065 ./traces/rulsr.rep
+ p yes     --    6495  0.000665  9760 ./traces/seglist.rep
+   yes   100%      12  0.000004  2727 ./traces/short2.rep
+            -         -     -
 
-#define DEBUG // 用来触发 #ifdef， 如果注释掉那就不会触发
+ */
+
+
+// #define DEBUG // 用来触发 #ifdef， 如果注释掉那就不会触发
 #ifdef DEBUG // ifdef就是 if defined
 # define dbg_printf(...) printf(__VA_ARGS__) // 如果defined，那么所有的dbg_printf运行起来的效果就等同于printf，__VA_ARGS__就是把参数原封不动的传下去
 #else
