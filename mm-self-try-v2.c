@@ -9,6 +9,48 @@
 #include "mm.h"
 #include "memlib.h"
 
+/**
+    Results for this version:
+    Results for mm malloc:
+  valid  util   ops    secs     Kops  trace
+   yes     0%  100000  0.010235  9770 ./traces/alaska.rep
+ * yes    23%    4805  0.003810  1261 ./traces/amptjp.rep
+ * yes    28%    4162  0.000515  8080 ./traces/bash.rep
+ * yes    56%   57716  1.347066    43 ./traces/boat.rep
+ * yes    19%    5032  0.003649  1379 ./traces/cccp.rep
+ * yes    31%   11991  0.001643  7298 ./traces/chrome.rep
+ * yes     2%   20000  0.322799    62 ./traces/coalesce-big.rep
+   yes    50%   14400  0.000094152542 ./traces/coalescing-bal.rep
+   yes   100%      15  0.000003  5357 ./traces/corners.rep
+ * yes    30%    5683  0.004904  1159 ./traces/cp-decl.rep
+ u yes     1%      --        --    -- ./traces/exhaust.rep
+ * yes    29%    8000  0.001072  7464 ./traces/firefox.rep
+   yes    60%   99804  0.011258  8865 ./traces/firefox-reddit.rep
+   yes    67%     118  0.000027  4453 ./traces/hostname.rep
+ * yes    63%   19405  0.002134  9095 ./traces/login.rep
+ * yes    25%     200  0.000022  9009 ./traces/lrucd.rep
+   yes    75%     372  0.000048  7686 ./traces/ls.rep
+   yes    90%      10  0.000002  5000 ./traces/malloc.rep
+   yes    82%      17  0.000001 14167 ./traces/malloc-free.rep
+ *  no      -       -         -     - ./traces/needle.rep
+ * yes    35%     200  0.000033  6024 ./traces/nlydf.rep
+   yes    68%    1494  0.000200  7451 ./traces/perl.rep
+ * yes    33%     200  0.000022  9091 ./traces/qyqyc.rep
+ * yes    37%    4800  0.001531  3135 ./traces/random.rep
+ * yes    37%    4800  0.001477  3249 ./traces/random2.rep
+ * yes    83%     147  0.000028  5231 ./traces/rm.rep
+ * yes    32%     200  0.000024  8403 ./traces/rulsr.rep
+ p yes     --    6495  0.013909   467 ./traces/seglist.rep
+   yes   100%      12  0.000004  3000 ./traces/short2.rep
+            -         -     -
+ */
+
+/**
+    基于version 1加入了比较基本的空间释放机制。
+    依靠末尾1个字节的释放Flag来标记被释放的空间。
+    每次malloc都O(1)遍历目前已用内存中是否有可以再复用的空间。
+ */
+
 
 // #define DEBUG // 用来触发 #ifdef， 如果注释掉那就不会触发
 #ifdef DEBUG // ifdef就是 if defined
@@ -29,10 +71,10 @@
 
 // 返回一个指向ptr指针后面最近的一个为8的倍数的地址的第一个字节的指针
 #define ALIGN_PTR(ptr) ((void *)(((uintptr_t)(ptr) + 7) & ~(uintptr_t)7))
-// 返回指针ptr往前数16个位置的一个指针(也就是记录长度的区块的开头)
-#define SIZE_PTR(ptr) ((size_t *)((char *)(ptr) - 16))
-// 返回指针ptr往前数8个位置的一个指针(也就是记录这块内存区域是否被占用)
-#define FREE_STATUS_PTR(ptr) ((char *)(ptr) - 8)
+// 返回指针ptr往前数8个位置的一个指针(也就是记录长度的区块的开头)
+#define SIZE_PTR(ptr) ((size_t *)((char *)(ptr) - 8))
+// 返回指向代表ptr指向的区块的释放状态的字节的指针, ptr是指向该区块内容第一个字节的指针
+#define FREE_STATUS_PTR(ptr, size) (((char *)(ptr))+size)
 
 // 用于记录现在到底有没有已经占用的内存，配合find_available_space使用防止访问还没申请的内存从而导致seg_fault
 static bool has_memory = false;
@@ -59,13 +101,14 @@ static char *find_available_space(size_t size)
     if (!has_memory) {
         return (char *) -1;
     }
+
     // 从开头开始找
     size_t *find_size_ptr = mem_heap_lo();
     // 注意这边的+1实际上是加了8个字节
-    signed char *find_availability_ptr = (char *)(find_size_ptr + 1);
+    signed char *find_availability_ptr = (char *)(find_size_ptr + 1) + *find_size_ptr;
     char *next_addr = find_size_ptr;
 
-    while (mem_heap_hi() > find_availability_ptr) {
+    while (mem_heap_hi() >= find_availability_ptr) {
         dbg_printf("avai_ptr=%p\n", find_availability_ptr);
         dbg_printf("size_ptr=%p\n", find_size_ptr);
         dbg_printf("size=%zu\n", *find_size_ptr);
@@ -74,9 +117,9 @@ static char *find_available_space(size_t size)
         } else {
             char *next_addr = find_size_ptr;
             next_addr += *find_size_ptr;
-            next_addr += 16;
+            next_addr += 9;
             find_size_ptr = ALIGN_PTR(next_addr);
-            find_availability_ptr = find_size_ptr + 1;
+            find_availability_ptr = (char *)(find_size_ptr + 1) + *find_size_ptr;
         } 
     }
     return (char *) -1;
@@ -93,18 +136,18 @@ void *malloc(size_t size)
     char *new_mem_start = ALIGN_PTR((char *)mem_heap_hi() + 1);
     dbg_printf("1: mem_heap_hi=%p\n", mem_heap_hi());
     dbg_printf("2. new_mem_start=%p\n", new_mem_start);
-    int diff = (int)(((uintptr_t)new_mem_start - (uintptr_t)mem_heap_hi())-1);
+    int diff = (int)(((uintptr_t)new_mem_start - (uintptr_t)mem_heap_hi()) - 1);
     dbg_printf("3. diff=%zu\n", diff);
 
-    // 这里要+16了 因为第一个+8留给size_ptr存大小 第二个+8留给free_status存释放状态
-    size_t new_size = size + diff + 16;
+    // 这里要+9了 因为第一个+8留给size_ptr存大小 第二个+1留给free_status存释放状态
+    size_t new_size = size + diff + 9;
     dbg_printf("4. size = %zu, new_size = %zu\n", size, new_size);
 
     char *empty_space_ptr = find_available_space(size);
     if (empty_space_ptr != (signed char *) -1) {
         new_mem_start = empty_space_ptr;
     } else {
-        void *ret = mem_sbrk(size + diff + 16);
+        void *ret = mem_sbrk(size + diff + 8 + 1);
         if (ret == ((void *) -1)) {
             return NULL;
         }
@@ -115,15 +158,12 @@ void *malloc(size_t size)
     size_t *size_ptr = new_mem_start;
     *size_ptr = size;
     new_mem_start += 8;
-    dbg_printf("5-2. avai_ptr=%p\n", new_mem_start);
 
-    // 虽然占用8个字节，但是我们只用一个字节代表释放状态，这样子memset时消耗可以小不少
-    char *free_status_ptr = new_mem_start;
-
+    // 最后一位用来存放释放状态，0代表可用，-1代表不可用
+    char *free_status_ptr = new_mem_start + size;
+    dbg_printf("5-2. avai_ptr=%p\n", free_status_ptr);
     // 用全1占位表示已占用
     *free_status_ptr = 0xFF;
-
-    new_mem_start += 8;
     dbg_printf("5-3. new_mem_start=%p\n", new_mem_start);
     dbg_printf("6: new_mem_heap_hi=%p\n", mem_heap_hi());
     dbg_printf("========malloc()========\n\n");
@@ -138,7 +178,8 @@ void *malloc(size_t size)
 void free(void *ptr)
 {
     if ((ptr == NULL) || !(has_memory && ptr < mem_heap_hi())) return;
-    char *free_status = FREE_STATUS_PTR((char *)ptr);
+    size_t *size_ptr = SIZE_PTR(ptr);
+    char *free_status = FREE_STATUS_PTR((char *)ptr, *size_ptr);
     // dbg_printf("\naaaa\n");
     // dbg_printf("mem_heap_hi=%p\n", mem_heap_hi());
     // dbg_printf("ptr = %p\n", ptr);
