@@ -1,3 +1,45 @@
+/**
+    Results for this version:
+    Results for mm malloc:
+  valid  util   ops    secs     Kops  trace
+   yes    30%  100000  0.006176 16192 ./traces/alaska.rep
+ * yes    99%    4805  0.004275  1124 ./traces/amptjp.rep
+ * yes    77%    4162  0.002708  1537 ./traces/bash.rep
+ * yes    56%   57716  1.253972    46 ./traces/boat.rep
+ * yes    99%    5032  0.003743  1344 ./traces/cccp.rep
+ * yes    67%   11991  0.026069   460 ./traces/chrome.rep
+ * yes    99%   20000  0.001304 15339 ./traces/coalesce-big.rep
+   yes     0%   14400  0.001610  8946 ./traces/coalescing-bal.rep
+   yes   100%      15  0.000003  5556 ./traces/corners.rep
+ * yes    99%    5683  0.006062   938 ./traces/cp-decl.rep
+ u yes    54%      --        --    -- ./traces/exhaust.rep
+ * yes    68%    8000  0.011030   725 ./traces/firefox.rep
+   yes    77%   99804  2.495633    40 ./traces/firefox-reddit.rep
+   yes    85%     118  0.000030  3933 ./traces/hostname.rep
+ * yes    88%   19405  0.150471   129 ./traces/login.rep
+ * yes    82%     200  0.000012 17094 ./traces/lrucd.rep
+   yes    90%     372  0.000087  4256 ./traces/ls.rep
+   yes    90%      10  0.000003  4000 ./traces/malloc.rep
+   yes    85%      17  0.000001 15455 ./traces/malloc-free.rep
+ u yes    99%      --        --    -- ./traces/needle.rep
+ * yes    91%     200  0.000020 10204 ./traces/nlydf.rep
+   yes    83%    1494  0.001164  1284 ./traces/perl.rep
+ * yes    85%     200  0.000016 12500 ./traces/qyqyc.rep
+ * yes    94%    4800  0.004367  1099 ./traces/random.rep
+ * yes    92%    4800  0.004006  1198 ./traces/random2.rep
+ * yes    92%     147  0.000036  4027 ./traces/rm.rep
+ * yes    95%     200  0.000022  9050 ./traces/rulsr.rep
+ p yes     --    6495  0.014822   438 ./traces/seglist.rep
+   yes   100%      12  0.000005  2553 ./traces/short2.rep
+18 17     85%  153836  1.482933   104
+
+Perf index = 48 (util) & 0 (thru) = 48/100
+ */
+
+ /**
+    这个版本算是第一个比较完整的版本。加入了更完善的内存复用机制。
+    实现了大内存空间被复用时的切片机制。
+  */
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
