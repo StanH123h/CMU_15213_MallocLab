@@ -326,7 +326,7 @@ void *calloc(size_t nmemb, size_t size)
         // 其实这里return ret效果也一样的
         return NULL;
     }
-    memset(ret, 0, size);
+    memset(ret, 0, final_size);
     // mm_checkheap(0);
     return ret;
 }
